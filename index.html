@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Учебный чат-бот — Мировая и художественная культура</title>
+  <style>
+    :root{
+      --bg:#0f172a;          /* slate-900 */
+      --panel:#111827;       /* gray-900 */
+      --muted:#1f2937;       /* gray-800 */
+      --text:#e5e7eb;        /* gray-200 */
+      --accent:#22d3ee;      /* cyan-400 */
+      --accent-2:#a78bfa;    /* violet-400 */
+      --danger:#ef4444;      /* red-500 */
+      --ok:#10b981;          /* emerald-500 */
+      --shadow: 0 10px 30px rgba(0,0,0,.3);
+    }
+    html,body{height:100%}
+    body{
+      margin:0; background:linear-gradient(120deg,#0b1220,#0f172a 30%,#0b1220);
+      color:var(--text); font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .app{width:min(1100px,100%); height:min(760px,100%); display:grid; grid-template-columns:320px 1fr; gap:16px}
+    .card{background:rgba(17,24,39,.85); backdrop-filter: blur(8px); border:1px solid #192032; border-radius:20px; box-shadow:var(--shadow)}
+    .sidebar{padding:16px; display:flex; flex-direction:column}
+    .brand{display:flex; align-items:center; gap:10px; padding:8px 10px 16px}
+    .logo{width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); box-shadow:0 6px 20px rgba(34,211,238,.35)}
+    .brand h1{font-size:16px; font-weight:700; letter-spacing:.2px; margin:0}
+    .brand small{opacity:.7}
+    .chips{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 14px; max-height:150px; overflow:auto}
+    .chip{border:1px solid #243042; padding:6px 10px; border-radius:999px; cursor:pointer; font-size:12px}
+    .chip:hover{border-color:var(--accent); color:var(--accent)}
+    .panel{background:var(--muted); border-radius:14px; padding:10px; margin-top:auto}
+    .panel h3{margin:0 0 10px; font-size:12px; opacity:.8; font-weight:600}
+    .panel .row{display:flex; gap:8px; margin:8px 0; align-items:center}
+    .panel label{font-size:12px; opacity:.9}
+    .panel input[type="checkbox"]{accent-color:var(--accent)}
+
+    .main{display:grid; grid-template-rows:auto 1fr auto; overflow:hidden}
+    .header{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #1d2636}
+    .header .title{display:flex; align-items:center; gap:10px}
+    .status{font-size:12px; opacity:.7}
+
+    .feed{padding:18px; overflow:auto; display:flex; flex-direction:column; gap:14px}
+    .msg{display:flex; gap:10px; align-items:flex-start}
+    .avatar{flex:0 0 36px; width:36px; height:36px; border-radius:12px; background:#0b1325; display:grid; place-items:center; border:1px solid #1e2a3c}
+    .avatar.bot{background:linear-gradient(160deg, rgba(34,211,238,.15), rgba(167,139,250,.15)); color:var(--accent)}
+    .bubble{max-width:70%; padding:12px 14px; border:1px solid #223048; border-radius:14px; line-height:1.5}
+    .bubble.bot{background:rgba(34,211,238,.08)}
+    .bubble.user{background:rgba(167,139,250,.08)}
+    .meta{font-size:11px; opacity:.6; margin-top:6px}
+
+    .typing{display:inline-block; width:36px; height:10px}
+    .typing span{display:inline-block; width:6px; height:6px; margin-right:4px; background:#60708f; border-radius:50%; animation:blink 1s infinite ease-in-out}
+    .typing span:nth-child(2){animation-delay:.2s}
+    .typing span:nth-child(3){animation-delay:.4s}
+    @keyframes blink{0%,80%,100%{opacity:.2; transform:translateY(0)}40%{opacity:1; transform:translateY(-2px)}}
+
+    .composer{display:flex; gap:10px; padding:14px; border-top:1px solid #1d2636}
+    .composer input{flex:1; background:#0b1320; border:1px solid #1d2636; border-radius:12px; padding:14px; color:var(--text); outline:none}
+    .composer input:focus{border-color:#2b3a55; box-shadow:0 0 0 3px rgba(34,211,238,.08)}
+    .btn{background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#081120; border:none; padding:12px 14px; border-radius:12px; font-weight:700; cursor:pointer}
+    .ghost{background:transparent; border:1px solid #263143; color:var(--text)}
+    .toolbar{display:flex; gap:8px}
+
+    .kbd{border:1px solid #2b3a55; background:#0c1526; padding:2px 6px; border-radius:6px; font-size:11px}
+    .hint{font-size:12px; opacity:.75; padding:0 16px 12px}
+
+    .notice{border-left:3px solid var(--accent); background:rgba(34,211,238,.07); padding:10px 12px; border-radius:12px; font-size:13px}
+    .success{border-left-color:var(--ok); background:rgba(16,185,129,.07)}
+    .danger{border-left-color:var(--danger); background:rgba(239,68,68,.07)}
+
+    .optrow{display:flex; gap:8px; flex-wrap:wrap}
+    .opt{border:1px dashed #2a3750; border-radius:10px; padding:8px 10px; font-size:12px; cursor:pointer}
+    .opt:hover{border-color:var(--accent)}
+
+    .code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; background:#0a1120; padding:8px 10px; border-radius:8px; border:1px solid #1e2a3c; overflow:auto}
+
+    .footer-links{font-size:11px; opacity:.65; text-align:center; margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar card">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Культурный собеседник</h1>
+          <small>Мировая и художественная культура</small>
+        </div>
+      </div>
+
+      <div class="notice" id="narrowing">
+        Можно сузить тему. Нажмите на раздел ниже или введите <span class="kbd">/topic</span> и название.
+      </div>
+
+      <h3 style="margin:14px 10px 4px; opacity:.85">Быстрый старт</h3>
+      <div class="chips" id="chips"></div>
+
+      <div class="panel">
+        <h3>Настройки диалога</h3>
+        <div class="row"><input type="checkbox" id="cbSocratic"/><label for="cbSocratic">Сократический режим (больше вопросов)</label></div>
+        <div class="row"><input type="checkbox" id="cbTutor"/><label for="cbTutor">Режим Учителя (пояснения + мини‑задания)</label></div>
+        <div class="row"><input type="checkbox" id="cbQuiz"/><label for="cbQuiz">Включить викторины по теме</label></div>
+      </div>
+
+      <div class="footer-links">
+        Подсказки: <span class="kbd">/help</span> <span class="kbd">/mode</span> <span class="kbd">/quiz</span> <span class="kbd">/reset</span>
+      </div>
+    </aside>
+
+    <section class="main card">
+      <div class="header">
+        <div class="title">
+          <div class="avatar bot">🎭</div>
+          <div>
+            <div style="font-weight:700">Культурный собеседник</div>
+            <div class="status" id="status">Готов к беседе</div>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button class="btn ghost" id="btnExport" title="Скачать диалог как TXT">Экспорт</button>
+          <button class="btn ghost" id="btnReset" title="Очистить диалог и начать заново">Сброс</button>
+        </div>
+      </div>
+
+      <div class="feed" id="feed" role="log" aria-live="polite"></div>
+      <div class="hint">Нажмите <span class="kbd">Enter</span> для отправки, <span class="kbd">Shift+Enter</span> — новая строка.</div>
+
+      <div class="composer">
+        <input id="input" placeholder="Спросите о Ренессансе, авангарде, театре Но, Моцарте, архитектуре, кинематографе… или введите команду (/help)"/>
+        <button class="btn" id="send">Отправить</button>
+      </div>
+    </section>
+  </div>
+
+<script>
+// ------------------- МИНИ-ЯДРО ЧАТ-БОТА -------------------
+(function(){
+  const feed = document.getElementById('feed');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
+  const statusEl = document.getElementById('status');
+  const chipsEl = document.getElementById('chips');
+  const btnExport = document.getElementById('btnExport');
+  const btnReset = document.getElementById('btnReset');
+  const cbSocratic = document.getElementById('cbSocratic');
+  const cbTutor = document.getElementById('cbTutor');
+  const cbQuiz = document.getElementById('cbQuiz');
+
+  // Темы для быстрого выбора (можно дополнять)
+  const TOPICS = [
+    'Античность', 'Средневековье', 'Ренессанс', 'Барокко', 'Классицизм', 'Романтизм', 'Реализм', 'Импрессионизм', 'Модерн/Ар Нуво', 'Авангард', 'Баухауз', 'Сюрреализм', 'Экспрессионизм', 'Постмодернизм', 'Музыка', 'Театр', 'Кино', 'Архитектура', 'Живопись', 'Скульптура', 'Литература', 'Мифология', 'Религиозное искусство', 'Народы и традиции', 'Япония', 'Индия', 'Китай', 'Африка', 'Латинская Америка'
+  ];
+
+  // Небольшая база знаний (ключевые слова -> ответы/факты/вопросы)
+  const KB = [
+    {topic:'Античность', keywords:['древняя греция','античность','рим','эллада','олимп'], facts:[
+      'Античность подарила канон пропорций (Поликлет) и идеал гармонии тела.',
+      'Парфенон в Афинах — образец дорического ордера.',
+      'Римляне активно использовали бетон и арку, что позволило возводить купольные сооружения.'
+    ], prompts:[
+      'Чем дорический ордер отличается от ионического?',
+      'Какие сюжеты чаще всего встречаются в греческой вазописи?',
+      'Как римский Пантеон повлиял на европейскую архитектуру?'
+    ]},
+    {topic:'Ренессанс', keywords:['ренессанс','возрождение','леонардо','микеланджело','рафаэль','боттичелли','мадонна','флоренция'], facts:[
+      'Ренессанс опирается на гуманизм и интерес к античному наследию.',
+      'Линейная перспектива (Брунеллески, Альберти) изменила способ изображения пространства.',
+      'Высокий Ренессанс — Леонардо, Микеланджело, Рафаэль — около 1490–1520 годов.'
+    ], prompts:[
+      'Какие технические приёмы использует Леонардо в «Тайной вечере»?',
+      'Почему «Весна» Боттичелли считается аллегорией?',
+      'Чем различаются флорентийская и венецианская школы?'
+    ]},
+    {topic:'Барокко', keywords:['барокко','бернини','караваджо','контраст','театр света'], facts:[
+      'Барокко любит драму, движение и контраст света и тени (кьяроскуро).',
+      'В архитектуре — динамичные фасады, овальные планы, богатый декор.',
+      'Бернини в скульптуре сочетает театральность и невероятную пластичность.'
+    ], prompts:['Чем барокко отличается от классицизма?','Какие приёмы использует Караваджо для драматизма?']},
+    {topic:'Импрессионизм', keywords:['импрессионизм','монэ','дега','ренуар','пленэр','момент'], facts:[
+      'Импрессионисты писали на пленэре, фиксируя изменчивый свет и моментальные впечатления.',
+      'Отказ от чётких контуров, дробный мазок, чистые цвета — характерные признаки.'
+    ], prompts:['Почему критики сначала отвергали импрессионистов?','Как фотография повлияла на импрессионизм?']},
+    {topic:'Авангард', keywords:['авангард','кубизм','футуризм','супрематизм','дада','кандинский','мондриан','малевич'], facts:[
+      'Авангард исследует форму и абстракцию, отвергая традиционную мимесис.',
+      'Кубизм разлагает предмет на геометрические плоскости и множественные ракурсы.',
+      'Супрематизм Малевича — «чистое чувство» через базовые формы и цвет.'
+    ], prompts:['В чём различие аналитического и синтетического кубизма?','Какие идеи дадаистов повлияли на постмодернизм?']},
+    {topic:'Музыка', keywords:['музыка','моцарт','бах','бетховен','джаз','симфония','опера','соната'], facts:[
+      'Классицизм в музыке — ясность форм (сонатная форма), баланс и симметрия.',
+      'Бах — полифония барокко; Бетховен — рубеж классицизма и романтизма.',
+      'Джаз сформировался в начале XX века, импровизация — его ключевой принцип.'
+    ], prompts:['Чем опера отличается от оперетты?','Как устроена сонатная форма?']},
+    {topic:'Театр', keywords:['театр','шекспир','станиславский','но','кабуки','маска','катарсис'], facts:[
+      'Античный театр стремился к катарсису; в Японии театр Но — медитативный и символичный.',
+      'Система Станиславского повлияла на актёрскую школу XX века.'
+    ], prompts:['Что такое «четвёртая стена»?','Зачем нужны маски в театре Но?']},
+    {topic:'Кино', keywords:['кино','монтаж','немое кино','голливуд','авторское кино','тарковский','феллини'], facts:[
+      'Монтаж Кулешова показал, как смысл рождается в сочетании кадров.',
+      'Итальянский неореализм стремился к подлинности, снимая на улицах с непрофессиональными актёрами.'
+    ], prompts:['Чем авторское кино отличается от жанрового?','Почему крупный план так силён?']},
+    {topic:'Архитектура', keywords:['архитектура','готика','купола','модернизм','лё корбюзье','органика','фрэнк ллойд райт'], facts:[
+      'Готика — стрельчатые арки, контрфорсы, витражи; стремление вверх и к свету.',
+      'Модернизм провозгласил «форма следует функции», минимализм и новые материалы.'
+    ], prompts:['Что отличает базилику от централизованного храма?','Как «пять пунктов архитектуры» влияли на планировку?']},
+    {topic:'Литература', keywords:['литература','роман','эпос','поэзия','миф','символизм','магический реализм'], facts:[
+      'Символизм опирается на намёк и многозначность образа.',
+      'Магический реализм соединяет повседневное и чудесное без пояснений.'
+    ], prompts:['Чем эпос отличается от романа?','Как ритм влияет на восприятие поэзии?']}
+  ];
+
+  // Шаблоны режимов
+  const MODES = {
+    normal:{name:'Обычный собеседник', style:(a)=>a},
+    socratic:{name:'Сократ', style: asSocratic},
+    tutor:{name:'Учитель', style: asTutor}
+  };
+
+  // Состояние
+  const state = {
+    mode:'normal',
+    topic:null,
+    name:null,
+    turns:[],
+    quiz:null,
+    flags:{socratic:false, tutor:false, quiz:false}
+  };
+
+  // Инициализация
+  renderChips();
+  greet();
+
+  function greet(){
+    pushBot(`Привет! Я собеседник по теме «Мировая и художественная культура».\n\nМожем обсудить эпохи (Античность, Ренессанс, Барокко…), виды искусства (живопись, музыка, театр, кино, архитектура) или традиции разных народов.\n\nСоветы: напишите, что вам интересно, или используйте команды: \n- <span class="kbd">/topic</span> Ренессанс — выбрать тему;\n- <span class="kbd">/mode</span> Сократ | Учитель | Обычный;\n- <span class="kbd">/quiz</span> — мини‑викторина;\n- <span class="kbd">/help</span> — справка.`);
+  }
+
+  function renderChips(){
+    TOPICS.forEach(t=>{
+      const el=document.createElement('button');
+      el.className='chip'; el.textContent=t; el.onclick=()=>setTopic(t,true);
+      chipsEl.appendChild(el);
+    })
+  }
+
+  function setTopic(t, announce=false){
+    state.topic=t; statusEl.textContent = `Тема: ${t}`;
+    if(announce) pushBot(`Отлично! Сузим разговор: «${t}». Задайте вопрос или нажмите «Викторина».`);
+  }
+
+  function pushUser(text){
+    const card = document.createElement('div'); card.className='msg';
+    card.innerHTML = `<div class="avatar">🧑</div><div><div class="bubble user">${escapeHtml(text)}</div><div class="meta">Вы</div></div>`;
+    feed.appendChild(card); feed.scrollTop = feed.scrollHeight;
+  }
+
+  function pushBot(html){
+    const card = document.createElement('div'); card.className='msg';
+    const id = 'b'+Math.random().toString(36).slice(2);
+    card.innerHTML = `<div class="avatar bot">🎭</div><div><div class="bubble bot" id="${id}"><div class="typing"><span></span><span></span><span></span></div></div><div class="meta">Бот</div></div>`;
+    feed.appendChild(card); feed.scrollTop = feed.scrollHeight;
+    setTimeout(()=>{ document.getElementById(id).innerHTML = html; feed.scrollTop = feed.scrollHeight; }, 450 + Math.random()*500);
+  }
+
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+  }
+
+  function findTopicByText(text){
+    const low=text.toLowerCase();
+    // имя пользователя (простая эвристика)
+    const m = low.match(/меня\s+зовут\s+([a-zа-яё\- ]{2,})/i);
+    if(m){ state.name = m[1].trim().split(' ')[0]; }
+
+    // приоритет выбранной темы
+    if(state.topic) return KB.find(k=>k.topic===state.topic);
+    // поиск по ключевым словам
+    return KB.find(k=>k.keywords.some(w=>low.includes(w))) || null;
+  }
+
+  function genAnswer(text){
+    // команды
+    const trimmed = text.trim();
+    if(/^\/help/.test(trimmed)) return helpMsg();
+    if(/^\/reset/.test(trimmed)) {reset(); return null}
+    if(/^\/topic\s+/i.test(trimmed)) { const t=trimmed.replace(/^\/topic\s+/i,'').trim(); if(t){ setTopic(t,true); } else { pushBot('Укажите название после /topic. Пример: <span class="kbd">/topic Ренессанс</span>'); } return null }
+    if(/^\/mode\s*/i.test(trimmed)) { return switchMode(trimmed.replace(/^\/mode\s*/i,'')); }
+    if(/^\/quiz/i.test(trimmed)) { startQuiz(); return null }
+
+    const kb = findTopicByText(text);
+    const name = state.name ? `, ${capitalize(state.name)}` : '';
+
+    if(cbQuiz.checked || state.flags.quiz){ ensureQuizDeck(kb); return answerQuiz(text); }
+
+    if(!kb){
+      const follow = suggestTopics(text);
+      return `Я пока не распознал тему${name}. Сформулируйте чуть точнее или выберите раздел.\n\nВозможные направления: ${TOPICS.slice(0,8).join(', ')}…` + follow;
+    }
+
+    const fact = pick(kb.facts);
+    const prompt = pick(kb.prompts);
+
+    let answer = `<div>${fact}</div>`;
+    if(cbTutor.checked || state.flags.tutor){
+      answer += `<div class="notice" style="margin-top:8px">Задание: ${miniTaskFor(kb.topic)}</div>`;
+    }
+    if(cbSocratic.checked || state.flags.socratic){
+      answer += asSocratic(`Как вы это понимаете${name}? ${prompt}`);
+    } else {
+      answer += `<div style="margin-top:8px">Вопрос к вам${name}: ${prompt}</div>`;
+    }
+    return answer;
+  }
+
+  function helpMsg(){
+    return `Команды:\n• <span class="kbd">/topic</span> &lt;тема&gt; — выбрать тему (напр. /topic Ренессанс)\n• <span class="kbd">/mode</span> Сократ | Учитель | Обычный — стиль беседы\n• <span class="kbd">/quiz</span> — включить/начать викторину по текущей теме\n• <span class="kbd">/reset</span> — очистить диалог\n\nСовет: укажите интерес (напр. «как импрессионисты писали свет?»).`;
+  }
+
+  function switchMode(arg){
+    const a = arg.trim().toLowerCase();
+    if(a.startsWith('сок')){ state.flags.socratic=true; state.flags.tutor=false; pushBot('Режим: Сократический. Я буду чаще задавать вопросы.'); return null }
+    if(a.startsWith('учи')){ state.flags.tutor=true; state.flags.socratic=false; pushBot('Режим: Учитель. Я добавляю пояснения и задания.'); return null }
+    if(a.startsWith('обы') || a==='') { state.flags.tutor=false; state.flags.socratic=false; pushBot('Режим: Обычный собеседник.'); return null }
+    return `Не узнал режим. Доступны: Обычный, Сократ, Учитель.`;
+  }
+
+  function asSocratic(text){
+    return `<div style="margin-top:8px" class="notice">Давайте разберёмся вопросами: ${text}</div>`
+  }
+
+  function asTutor(answer){
+    return answer + `<div class="notice" style="margin-top:8px">Подсказка: используйте пример из произведения.</div>`
+  }
+
+  function miniTaskFor(topic){
+    const tasks = {
+      'Античность':'Найдите 2 отличия дорического и ионического ордеров в примерах.',
+      'Ренессанс':'Опишите, как работает линейная перспектива на реальной картине.',
+      'Барокко':'Подберите пример «театрального» света на изображении.',
+      'Импрессионизм':'Сделайте фото на улице и отметьте, как меняется цвет при освещении.',
+      'Авангард':'Попробуйте нарисовать объект, сведя его к простым формам.',
+      'Музыка':'Слушая симфонию, определите экспозицию и разработку.',
+      'Театр':'Наблюдая сцену, отметьте «четвёртую стену».',
+      'Кино':'Проанализируйте сцену, где монтаж усиливает смысл.',
+      'Архитектура':'Найдите в городе пример модернизма или готики.',
+      'Литература':'Сравните символ и метафору в стихотворении.'
+    };
+    return tasks[topic] || 'Коротко перескажите идею своими словами.';
+  }
+
+  function suggestTopics(text){
+    const low = text.toLowerCase();
+    const hits = KB.filter(k => k.keywords.some(w=> low.includes(w))).map(k=>k.topic);
+    if(hits.length){
+      return `\n\nПохоже, вы имеете в виду: ${[...new Set(hits)].join(', ')}.`;
+    }
+    return '';
+  }
+
+  function ensureQuizDeck(kb){
+    if(state.quiz && state.quiz.active) return;
+    const base = (kb||KB[0]);
+    const pool = [
+      {q:'Что для импрессионизма наиболее характерно?', options:['Линейная перспектива','Пленэр и изменчивый свет','Мифологические сюжеты'], correct:1, why:'Импрессионисты фиксировали мгновенные впечатления и свет.'},
+      {q:'Кто из художников — представитель Высокого Ренессанса?', options:['Рафаэль','Роден','Миро'], correct:0, why:'Рафаэль Санти — ключевая фигура Высокого Ренессанса.'},
+      {q:'Какой принцип близок модернизму в архитектуре?', options:['«Форма следует функции»','«Искусство ради искусства»','«Назад к классицизму»'], correct:0, why:'Модернизм подчёркивал функциональность.'},
+      {q:'Какой театр использует маски и медитативный ритм?', options:['Кабаре','Но','Комедия дель арте'], correct:1, why:'Театр Но — традиционный японский театр с масками.'},
+      {q:'Что изучает супрематизм?', options:['Чистое чувство через формы и цвет','Исторический реализм','Социальную сатиру'], correct:0, why:'Супрематизм — абстрактное искусство Малевича.'}
+    ];
+    shuffle(pool);
+    state.quiz = {active:true, score:0, total:0, pool, current:null};
+    askNextQuiz();
+  }
+
+  function startQuiz(){
+    state.flags.quiz = !state.flags.quiz;
+    if(state.flags.quiz){
+      pushBot('Викторина включена. Поехали!');
+      ensureQuizDeck(findTopicByText(state.topic||''));
+    } else {
+      pushBot('Викторина выключена. Возвращаемся к беседе.');
+      state.quiz=null;
+    }
+  }
+
+  function askNextQuiz(){
+    const q = state.quiz.pool.pop();
+    if(!q){
+      pushBot(`<div class="success">Викторина завершена! Счёт: ${state.quiz.score}/${state.quiz.total}</div>`);
+      state.flags.quiz=false; state.quiz=null; return;
+    }
+    state.quiz.current=q; state.quiz.total++;
+    const opts = q.options.map((o,i)=>`<button class="opt" data-i="${i}">${escapeHtml(o)}</button>`).join('');
+    pushBot(`<div><strong>Вопрос ${state.quiz.total}:</strong> ${escapeHtml(q.q)}</div><div class="optrow" data-quiz="1">${opts}</div>`);
+  }
+
+  function answerQuiz(text){
+    // попытка извлечь номер ответа из текста пользователя
+    const num = parseInt(text.trim(),10);
+    if(Number.isInteger(num)){
+      return grade(num-1);
+    }
+    // иначе просто поддерживаем беседу и напоминаем
+    return `Мы в режиме викторины. Введите номер ответа (1, 2, 3).`;
+  }
+
+  function grade(i){
+    const q = state.quiz.current;
+    if(!q) return 'Подождите следующий вопрос…';
+    let html='';
+    if(i===q.correct){
+      state.quiz.score++; html = `<div class="success">Верно! ${escapeHtml(q.why)}</div>`;
+    } else {
+      html = `<div class="danger">Не совсем. Правильный ответ: ${q.correct+1}. ${escapeHtml(q.why)}</div>`;
+    }
+    pushBot(html);
+    askNextQuiz();
+    return null;
+  }
+
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a }
+  function capitalize(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s }
+
+  function reset(){
+    feed.innerHTML=''; state.topic=null; state.turns=[]; state.flags={socratic:false,tutor:false,quiz:false}; state.quiz=null; statusEl.textContent='Готов к беседе';
+    pushBot('Диалог сброшен. Выберите тему или задайте вопрос.');
+  }
+
+  // Обработка кликов по вариантам викторины
+  feed.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.opt');
+    if(btn && btn.parentElement?.dataset.quiz){
+      const i = parseInt(btn.dataset.i,10); grade(i);
+    }
+  });
+
+  // Экспорт беседы
+  btnExport.addEventListener('click', ()=>{
+    const lines = Array.from(feed.querySelectorAll('.msg')).map(msg=>{
+      const isBot = msg.querySelector('.avatar')?.classList.contains('bot');
+      const text = msg.querySelector('.bubble')?.innerText || '';
+      return (isBot? 'Бот: ':'Вы: ') + text.replace(/\s+$/,'');
+    });
+    const blob = new Blob([lines.join('\n\n')],{type:'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='dialog-kultura.txt'; a.click(); URL.revokeObjectURL(url);
+  });
+
+  btnReset.addEventListener('click', reset);
+
+  // Отправка сообщений
+  sendBtn.addEventListener('click', ()=>{
+    const text = input.value.trim(); if(!text) return; pushUser(text);
+    const resp = genAnswer(text); if(resp){ pushBot(resp) }
+    input.value=''; input.focus();
+  });
+  input.addEventListener('keydown', (e)=>{
+    if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendBtn.click(); }
+  });
+})();
+</script>
+</body>
+</html>
