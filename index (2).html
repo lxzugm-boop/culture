@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Учебный чат-бот</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #111;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background: #1e1e1e;
+      padding: 0.75rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      margin: 0;
+    }
+
+    header button {
+      background: none;
+      border: none;
+      color: #eee;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 0.5rem;
+      overflow-y: auto;
+    }
+
+    .message {
+      display: flex;
+      flex-direction: column;
+      margin: 0.4rem 0;
+      max-width: 80%;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+
+    .bubble {
+      padding: 0.7rem 1rem;
+      border-radius: 1rem;
+      line-height: 1.4;
+    }
+
+    .user .bubble {
+      background: #007bff;
+      color: white;
+      border-bottom-right-radius: 0.3rem;
+    }
+
+    .bot .bubble {
+      background: #333;
+      border-bottom-left-radius: 0.3rem;
+    }
+
+    .timestamp {
+      font-size: 0.7rem;
+      opacity: 0.6;
+      margin-top: 0.2rem;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0.5rem 0;
+    }
+
+    .chip {
+      background: #444;
+      padding: 0.4rem 0.8rem;
+      border-radius: 1rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+
+    .chip:hover {
+      background: #666;
+    }
+
+    .quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      padding: 0.4rem;
+      background: #1e1e1e;
+    }
+
+    .quick-actions button {
+      flex: 1;
+      padding: 0.5rem;
+      border: none;
+      border-radius: 0.6rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: #333;
+      color: #eee;
+      transition: background 0.2s;
+    }
+
+    .quick-actions button.active {
+      background: #007bff;
+      color: #fff;
+    }
+
+    .input-container {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      background: #1e1e1e;
+      flex-shrink: 0;
+    }
+
+    textarea {
+      flex: 1;
+      resize: none;
+      border: none;
+      border-radius: 1.2rem;
+      padding: 0.7rem 1rem;
+      font-size: 1rem;
+      background: #333;
+      color: #fff;
+      box-sizing: border-box;
+    }
+
+    button.send {
+      border: none;
+      border-radius: 50%;
+      background: #007bff;
+      color: #fff;
+      font-size: 1.2rem;
+      width: 42px;
+      height: 42px;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button.send:active {
+      background: #0056b3;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+      .message { max-width: 95%; }
+      textarea { font-size: 0.95rem; }
+      .chip { font-size: 0.85rem; }
+      .quick-actions button { font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Учебный чат-бот</h1>
+    <button onclick="exportChat()">📥</button>
+  </header>
+  
+  <div class="chat-container" id="chat">
+    <div class="message bot">
+      <div class="bubble">Привет! 👋 Выбери тему или задай вопрос.</div>
+      <div class="timestamp"></div>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="quick-actions">
+    <button id="btn-normal" onclick="setMode('normal', this)">🟢 Обычный</button>
+    <button id="btn-socratic" onclick="setMode('socratic', this)">🔵 Сократический</button>
+    <button id="btn-teacher" onclick="setMode('teacher', this)">🟣 Учитель</button>
+    <button onclick="startQuiz()">🎲 Викторина</button>
+    <button onclick="resetChat()">🔄 Сброс</button>
+  </div>
+
+  <div class="input-container">
+    <textarea id="userInput" rows="1" placeholder="Введите сообщение..."></textarea>
+    <button class="send" onclick="sendMessage()">✈️</button>
+  </div>
+
+  <script>
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('userInput');
+    const chips = document.getElementById('chips');
+
+    let mode = "normal";
+    let currentTopic = null;
+    let quizActive = false;
+    let quizAnswer = null;
+
+    const variants = {
+      greet: ["Привет! 👋", "Здравствуйте! 😊", "Хей! 🙌"],
+      factIntro: ["Кстати,", "Интересный факт:", "Знаешь ли ты, что"],
+      correct: ["Верно! 🎉", "Отлично! ✅", "Правильно! 👌"],
+      wrong: ["Не совсем так... 🤔", "Неверно 😢", "Попробуй ещё раз!"]
+    };
+
+    const topics = {
+      "Античность": {
+        facts: ["Античность — эпоха древнегреческой и древнеримской культур.", "Главные жанры — скульптура, архитектура, театр."],
+        questions: ["Что тебе больше всего интересно в античной культуре?", "Как думаешь, зачем строили амфитеатры?"],
+        task: "Найди изображение античного храма и сравни его с современными зданиями."
+      },
+      "Ренессанс": {
+        facts: ["Ренессанс — эпоха Возрождения в Европе XV–XVI вв.", "Главные фигуры: Леонардо да Винчи, Микеланджело, Рафаэль."],
+        questions: ["Что нового принес Ренессанс в искусство?", "Почему интерес к человеку стал главным?"],
+        task: "Попробуй нарисовать портрет в стиле Ренессанса."
+      },
+      "Барокко": {
+        facts: ["Барокко — стиль пышности и динамики.", "В архитектуре — изогнутые линии, богатый декор."],
+        questions: ["Как барокко отличалось от Ренессанса?", "Почему людям нравился такой стиль?"],
+        task: "Сравни картину Караваджо и Рафаэля."
+      },
+      "Импрессионизм": {
+        facts: ["Импрессионизм возник во Франции XIX века.", "Художники: Моне, Ренуар, Дега."],
+        questions: ["Что значит 'поймать момент' в искусстве?", "Чем импрессионисты отличались от академиков?"],
+        task: "Нарисуй быстро пейзаж, как будто импрессионист."
+      }
+    };
+
+    const quizzes = [
+      {
+        q: "Кто написал «Мону Лизу»?",
+        options: ["Микеланджело", "Леонардо да Винчи", "Рафаэль"],
+        answer: 2
+      },
+      {
+        q: "Где зародился импрессионизм?",
+        options: ["Франция", "Италия", "Германия"],
+        answer: 1
+      }
+    ];
+
+    function addMessage(text, sender="user") {
+      const msg = document.createElement('div');
+      msg.className = `message ${sender}`;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      const ts = document.createElement('div');
+      ts.className = 'timestamp';
+      ts.textContent = new Date().toLocaleTimeString().slice(0,5);
+      msg.appendChild(bubble);
+      msg.appendChild(ts);
+      chat.insertBefore(msg, chips);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function sendMessage() {
+      const text = input.value.trim();
+      if (!text) return;
+      addMessage(text, "user");
+      input.value = "";
+      handleUserInput(text);
+    }
+
+    function handleUserInput(text) {
+      if (quizActive) {
+        let choice = parseInt(text);
+        if (choice === quizAnswer) {
+          addMessage(randomFrom(variants.correct), "bot");
+        } else {
+          addMessage(randomFrom(variants.wrong), "bot");
+        }
+        quizActive = false;
+        return;
+      }
+
+      if (text.startsWith("/")) {
+        handleCommand(text);
+      } else if (currentTopic) {
+        respondOnTopic(text);
+      } else {
+        addMessage("Используй кнопки ниже или выбери тему 👇", "bot");
+      }
+    }
+
+    function handleCommand(cmd) {
+      if (cmd === "/help") {
+        addMessage("Команды: /topic [тема], /mode [normal|socratic|teacher], /quiz, /reset", "bot");
+      } else if (cmd.startsWith("/topic")) {
+        const parts = cmd.split(" ");
+        const t = parts[1];
+        if (topics[t]) {
+          currentTopic = t;
+          addMessage("Тема выбрана: " + t, "bot");
+          addMessage(randomFrom(variants.factIntro) + " " + topics[t].facts[0], "bot");
+        } else {
+          addMessage("Такой темы нет. Доступные: " + Object.keys(topics).join(", "), "bot");
+        }
+      } else if (cmd.startsWith("/mode")) {
+        const parts = cmd.split(" ");
+        const m = parts[1];
+        if (["normal","socratic","teacher"].includes(m)) {
+          mode = m;
+          addMessage("Режим установлен: " + m, "bot");
+        } else {
+          addMessage("Неизвестный режим", "bot");
+        }
+      } else if (cmd === "/quiz") {
+        startQuiz();
+      } else if (cmd === "/reset") {
+        resetChat();
+      } else {
+        addMessage("Неизвестная команда. Введи /help", "bot");
+      }
+    }
+
+    function respondOnTopic(userText) {
+      const t = topics[currentTopic];
+      addMessage(randomFrom(variants.factIntro) + " " + t.facts[Math.floor(Math.random() * t.facts.length)], "bot");
+
+      if (mode === "socratic") {
+        addMessage(t.questions[Math.floor(Math.random() * t.questions.length)], "bot");
+      } else if (mode === "teacher") {
+        addMessage("Задание: " + t.task, "bot");
+      }
+    }
+
+    function startQuiz() {
+      const q = quizzes[Math.floor(Math.random() * quizzes.length)];
+      addMessage("Викторина: " + q.q, "bot");
+      q.options.forEach((opt, i) => addMessage(`${i+1}) ${opt}`, "bot"));
+      quizActive = true;
+      quizAnswer = q.answer;
+    }
+
+    function randomFrom(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function exportChat() {
+      let text = "";
+      document.querySelectorAll(".message").forEach(msg => {
+        const who = msg.classList.contains("user") ? "Вы" : "Бот";
+        const bubble = msg.querySelector(".bubble").textContent;
+        text += `${who}: ${bubble}\n`;
+      });
+      const blob = new Blob([text], {type: "text/plain"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "dialog.txt";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function setMode(m, btn) {
+      mode = m;
+      addMessage("Режим установлен: " + m, "bot");
+      document.querySelectorAll(".quick-actions button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    }
+
+    function resetChat() {
+      currentTopic = null;
+      addMessage("Чат сброшен. Выбери тему заново.", "bot");
+    }
+
+    input.addEventListener("keypress", e => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // создаем кнопки-чипы тем
+    Object.keys(topics).forEach(t => {
+      const chip = document.createElement('div');
+      chip.className = "chip";
+      chip.textContent = t;
+      chip.onclick = () => {
+        currentTopic = t;
+        addMessage("Тема выбрана: " + t, "bot");
+        addMessage(randomFrom(variants.factIntro) + " " + topics[t].facts[0], "bot");
+      };
+      chips.appendChild(chip);
+    });
+  </script>
+</body>
+</html>
